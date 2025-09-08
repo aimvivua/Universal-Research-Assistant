@@ -26,6 +26,9 @@ export const INITIAL_STATE: AppState = {
     secondaryQuestions: '',
     primaryHypothesis: '',
     secondaryHypothesis: '',
+    studyDesign: '',
+    sampleSize: '',
+    studyDuration: '',
   },
   projectTimeline: {
     tasks: [

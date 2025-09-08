@@ -66,11 +66,21 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
         } else {
             const result = await getStudyDesignSuggestion(data.title, data.primaryQuestions);
             setSuggestions(prev => ({ ...prev, design: result }));
+            if (result) {
+                onUpdate({
+                    studyDesign: result.design,
+                    sampleSize: result.sampleSize,
+                    studyDuration: result.duration,
+                });
+            }
         }
     } catch (error) {
         console.error(`Error fetching ${type} suggestion:`, error);
-        if (type === 'hypotheses') setSuggestions(prev => ({ ...prev, hypotheses: null }));
-        else setSuggestions(prev => ({ ...prev, design: null }));
+        if (type === 'hypotheses') {
+            setSuggestions(prev => ({ ...prev, hypotheses: null }));
+        } else {
+            setSuggestions(prev => ({ ...prev, design: null }));
+        }
     } finally {
         setLoadingSuggestionType(null);
     }
@@ -142,6 +152,13 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
                 {renderInputField('secondaryQuestions', 'Secondary Research Questions', 'e.g., What is the correlation between biomarker X levels and disease severity?', true)}
                 {renderInputField('primaryHypothesis', 'Primary Hypothesis', 'e.g., Biomarker X has a sensitivity of over 90%...', true)}
                 {renderInputField('secondaryHypothesis', 'Secondary Hypothesis', 'e.g., There is a positive correlation between biomarker X levels...', true)}
+                
+                <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-lg font-semibold text-slate-600 mb-4">Study Logistics</h3>
+                    {renderInputField('studyDesign', 'Study Design', 'e.g., Prospective Cohort Study')}
+                    {renderInputField('sampleSize', 'Sample Size', 'e.g., 250 participants')}
+                    {renderInputField('studyDuration', 'Study Duration', 'e.g., 24 months')}
+                </div>
             </>
         )}
         <div className="mt-8 border-t pt-6">
@@ -178,10 +195,10 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
                     {loadingSuggestionType === 'design' && <Loader rows={3} />}
                     {suggestions.design && (
                         <div className="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-md space-y-2">
-                            <div><h4 className="font-semibold text-indigo-800">Study Design:</h4><p className="text-sm text-indigo-700">{suggestions.design.design}</p></div>
-                            <div><h4 className="font-semibold text-indigo-800">Justification:</h4><p className="text-sm text-indigo-700">{suggestions.design.justification}</p></div>
-                            <div><h4 className="font-semibold text-indigo-800">Sample Size:</h4><p className="text-sm text-indigo-700">{suggestions.design.sampleSize}</p></div>
-                            <div><h4 className="font-semibold text-indigo-800">Duration:</h4><p className="text-sm text-indigo-700">{suggestions.design.duration}</p></div>
+                            <p className="text-sm font-semibold text-indigo-800">Study fields have been populated. Here's the AI's justification:</p>
+                            <div>
+                                <p className="text-sm text-indigo-700">{suggestions.design.justification}</p>
+                            </div>
                         </div>
                     )}
                 </div>

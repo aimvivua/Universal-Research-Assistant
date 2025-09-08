@@ -18,6 +18,9 @@ export interface ProjectOverviewData {
   secondaryQuestions: string;
   primaryHypothesis: string;
   secondaryHypothesis: string;
+  studyDesign: string;
+  sampleSize: string;
+  studyDuration: string;
 }
 
 export interface TimelineTask {
