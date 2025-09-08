@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { DataManagementData } from '../../types';
+import { generateSampleData } from '../../services/geminiService';
 
 interface DataManagementProps {
   data: DataManagementData;
@@ -9,6 +9,9 @@ interface DataManagementProps {
 
 const DataManagement: React.FC<DataManagementProps> = ({ data, onUpdate }) => {
   const [newColumnName, setNewColumnName] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [rowCount, setRowCount] = useState(10);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   const handleAddColumn = () => {
     if (newColumnName.trim() === '') return;
@@ -46,6 +49,23 @@ const DataManagement: React.FC<DataManagementProps> = ({ data, onUpdate }) => {
     onUpdate({ ...data, rows: newRows });
   };
   
+  const handleGenerateData = async () => {
+    if (data.columns.length === 0) {
+        alert("Please add at least one column before generating data.");
+        return;
+    }
+    setIsGenerating(true);
+    try {
+        const newRows = await generateSampleData(data.columns, rowCount);
+        onUpdate({ ...data, rows: [...data.rows, ...newRows] });
+    } catch(error) {
+        console.error("Failed to generate sample data:", error);
+    } finally {
+        setIsGenerating(false);
+        setIsModalOpen(false);
+    }
+  };
+
   const exportToCSV = () => {
     const headers = data.columns.map(c => c.name).join(',');
     const rows = data.rows.map(row => 
@@ -80,6 +100,7 @@ const DataManagement: React.FC<DataManagementProps> = ({ data, onUpdate }) => {
             </div>
             <button onClick={handleAddColumn} className="bg-primary-600 text-white font-bold py-2 px-4 rounded-md hover:bg-primary-700">Add Column</button>
             <button onClick={handleAddRow} className="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">Add Row</button>
+            <button onClick={() => setIsModalOpen(true)} className="bg-amber-500 text-white font-bold py-2 px-4 rounded-md hover:bg-amber-600">Generate Sample Data</button>
             <button onClick={exportToCSV} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700">Export to CSV</button>
         </div>
         
@@ -116,6 +137,29 @@ const DataManagement: React.FC<DataManagementProps> = ({ data, onUpdate }) => {
             </table>
         </div>
       </div>
+       {isModalOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+                    <h3 className="text-lg font-semibold mb-4">Generate Sample Data</h3>
+                    <div className="mb-4">
+                        <label htmlFor="row-count" className="block text-sm font-medium text-slate-600">Number of rows to generate:</label>
+                         <input
+                            id="row-count"
+                            type="number"
+                            value={rowCount}
+                            onChange={(e) => setRowCount(parseInt(e.target.value, 10))}
+                            className="w-full p-2 mt-1 border border-slate-300 rounded-md"
+                        />
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                        <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-slate-200 rounded-md">Cancel</button>
+                        <button onClick={handleGenerateData} disabled={isGenerating} className="px-4 py-2 bg-primary-600 text-white rounded-md disabled:bg-primary-300">
+                            {isGenerating ? 'Generating...' : 'Generate'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 };

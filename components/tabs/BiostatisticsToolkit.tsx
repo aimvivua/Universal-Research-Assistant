@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
+import { interpretTTest, interpretChiSquare } from '../../services/geminiService';
+import Loader from '../Loader';
 
 const UnpairedTTestCalculator: React.FC = () => {
     const [group1, setGroup1] = useState('2.9, 3.0, 3.1, 3.4, 3.6');
     const [group2, setGroup2] = useState('3.2, 3.5, 3.8, 4.0, 4.1');
     const [result, setResult] = useState<{ t: number; df: number; p: string } | null>(null);
     const [error, setError] = useState('');
+    const [interpretation, setInterpretation] = useState('');
+    const [loadingInterpretation, setLoadingInterpretation] = useState(false);
 
     const calculateStats = (data: number[]) => {
         const n = data.length;
@@ -17,6 +21,7 @@ const UnpairedTTestCalculator: React.FC = () => {
     const calculateTTest = () => {
         setError('');
         setResult(null);
+        setInterpretation('');
 
         const data1 = group1.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
         const data2 = group2.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
@@ -39,6 +44,20 @@ const UnpairedTTestCalculator: React.FC = () => {
 
         setResult({ t, df, p: 'P-value calculation is complex. Use statistical software for a precise p-value. A larger absolute t-value suggests a more significant difference.' });
     };
+
+    const handleInterpret = async () => {
+        if (!result) return;
+        setLoadingInterpretation(true);
+        setInterpretation('');
+        try {
+            const res = await interpretTTest(group1, group2, result.t, result.df);
+            setInterpretation(res);
+        } catch (e) {
+            setInterpretation("Error fetching interpretation.");
+        } finally {
+            setLoadingInterpretation(false);
+        }
+    }
 
     return (
         <div className="p-4 border rounded-lg">
@@ -63,6 +82,11 @@ const UnpairedTTestCalculator: React.FC = () => {
                     <p><strong>T-statistic:</strong> {result.t.toFixed(4)}</p>
                     <p><strong>Degrees of Freedom (df):</strong> {result.df}</p>
                     <p className="text-xs italic">{result.p}</p>
+                    <button onClick={handleInterpret} disabled={loadingInterpretation} className="text-sm text-indigo-600 font-medium hover:underline disabled:text-slate-400">
+                        {loadingInterpretation ? 'Interpreting...' : 'Interpret Results with AI'}
+                    </button>
+                    {loadingInterpretation && <Loader rows={2} />}
+                    {interpretation && <p className="text-sm pt-2 border-t mt-2 border-primary-200">{interpretation}</p>}
                 </div>
             )}
         </div>
@@ -72,24 +96,23 @@ const UnpairedTTestCalculator: React.FC = () => {
 const ChiSquareCalculator: React.FC = () => {
     const [data, setData] = useState({ a: 10, b: 20, c: 15, d: 5 });
     const [result, setResult] = useState<{ chi2: number; p: string } | null>(null);
+    const [interpretation, setInterpretation] = useState('');
+    const [loadingInterpretation, setLoadingInterpretation] = useState(false);
 
     const calculateChiSquare = () => {
+        setResult(null);
+        setInterpretation('');
         const { a, b, c, d } = data;
         const total = a + b + c + d;
         if (total === 0) return;
 
-        // Yates' correction for continuity is often used, but we'll use the standard formula for simplicity
         const expected_a = (a + b) * (a + c) / total;
         const expected_b = (a + b) * (b + d) / total;
         const expected_c = (c + d) * (a + c) / total;
         const expected_d = (c + d) * (b + d) / total;
-
-        if ([expected_a, expected_b, expected_c, expected_d].some(e => e < 5)) {
-            // Note for the user about Cochran's rule, but calculate anyway
-             console.warn("One or more expected frequencies are less than 5. Chi-square may not be accurate.");
-        }
+        
         if ([expected_a, expected_b, expected_c, expected_d].some(e => e === 0)) {
-            setResult(null); // Avoid division by zero
+            setResult(null);
             return;
         }
 
@@ -109,6 +132,20 @@ const ChiSquareCalculator: React.FC = () => {
         const numValue = parseInt(value, 10);
         setData(prev => ({ ...prev, [cell]: isNaN(numValue) || numValue < 0 ? 0 : numValue }));
     };
+
+     const handleInterpret = async () => {
+        if (!result) return;
+        setLoadingInterpretation(true);
+        setInterpretation('');
+        try {
+            const res = await interpretChiSquare(data, result.chi2);
+            setInterpretation(res);
+        } catch (e) {
+            setInterpretation("Error fetching interpretation.");
+        } finally {
+            setLoadingInterpretation(false);
+        }
+    }
 
     return (
         <div className="p-4 border rounded-lg">
@@ -137,6 +174,11 @@ const ChiSquareCalculator: React.FC = () => {
                 <div className="mt-4 p-4 bg-primary-50 rounded-lg space-y-2">
                     <p><strong>Chi-Square Value (χ²):</strong> {result.chi2.toFixed(4)}</p>
                     <p className="text-xs italic">{result.p}</p>
+                     <button onClick={handleInterpret} disabled={loadingInterpretation} className="text-sm text-indigo-600 font-medium hover:underline disabled:text-slate-400">
+                        {loadingInterpretation ? 'Interpreting...' : 'Interpret Results with AI'}
+                    </button>
+                    {loadingInterpretation && <Loader rows={2} />}
+                    {interpretation && <p className="text-sm pt-2 border-t mt-2 border-primary-200">{interpretation}</p>}
                 </div>
             )}
         </div>
@@ -187,6 +229,7 @@ const SampleSizeCalculator: React.FC = () => {
         {sampleSize !== null && (
             <div className="mt-4 p-4 bg-primary-50 rounded-lg">
                 <p className="font-semibold">Required Sample Size: <span className="text-primary-700 text-xl">{sampleSize}</span></p>
+                <p className="text-xs italic mt-2">This is an estimate. Consult a biostatistician for complex study designs.</p>
             </div>
         )}
     </div>

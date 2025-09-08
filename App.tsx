@@ -42,7 +42,7 @@ const App: React.FC = () => {
       case Tab.ProjectOverview:
         return <ProjectOverview data={appState.projectOverview} onUpdate={updateProjectOverview} />;
       case Tab.ResearchersGuide:
-        return <ResearchersGuide />;
+        return <ResearchersGuide projectData={appState.projectOverview} />;
       case Tab.LiteratureHub:
           return <LiteratureHub projectData={appState.projectOverview} citations={appState.citations} onUpdateCitations={updateCitations}/>;
       case Tab.CitationsManager:
@@ -56,9 +56,9 @@ const App: React.FC = () => {
       case Tab.AIDraftReviewer:
         return <AIDraftReviewer />;
       case Tab.FormGenerator:
-        return <FormGenerator projectData={appState.projectOverview} />;
+        return <FormGenerator projectData={appState.projectOverview} dataManagement={appState.dataManagement} />;
       case Tab.ProjectTimeline:
-        return <ProjectTimeline tasks={appState.projectTimeline.tasks} onUpdate={updateTimeline} />;
+        return <ProjectTimeline tasks={appState.projectTimeline.tasks} onUpdate={updateTimeline} projectData={appState.projectOverview} />;
       case Tab.UserManual:
         return <UserManual />;
       default:

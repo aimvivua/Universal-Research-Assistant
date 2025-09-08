@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { AIPersona } from '../../types';
-import { reviewDraftWithPersona } from '../../services/geminiService';
+import { reviewDraftWithPersona, suggestTitleAndAbstract } from '../../services/geminiService';
 import Loader from '../Loader';
-import { UserVoiceIcon, BrainCircuitIcon, BalanceScaleIcon, GlobeCommunityIcon } from '../icons/Icons';
+import { UserVoiceIcon, BrainCircuitIcon, BalanceScaleIcon, GlobeCommunityIcon, DocumentTextIcon } from '../icons/Icons';
 
 const personaDetails = {
     [AIPersona.SubjectGuide]: {
@@ -33,7 +32,7 @@ const AIDraftReviewer: React.FC = () => {
     const [draft, setDraft] = useState('');
     const [review, setReview] = useState('');
     const [loading, setLoading] = useState(false);
-    const [activePersona, setActivePersona] = useState<AIPersona | null>(null);
+    const [activeTask, setActiveTask] = useState<string | null>(null);
 
     const handleReviewRequest = async (persona: AIPersona) => {
         if (!draft.trim()) {
@@ -42,7 +41,7 @@ const AIDraftReviewer: React.FC = () => {
         }
         setLoading(true);
         setReview('');
-        setActivePersona(persona);
+        setActiveTask(persona);
         try {
             const result = await reviewDraftWithPersona(draft, persona);
             setReview(result);
@@ -51,9 +50,30 @@ const AIDraftReviewer: React.FC = () => {
             setReview("Sorry, an error occurred while fetching the review.");
         } finally {
             setLoading(false);
+            setActiveTask(null);
         }
     };
     
+    const handleSuggestTitle = async () => {
+         if (!draft.trim()) {
+            alert("Please paste your draft first.");
+            return;
+        }
+        setLoading(true);
+        setReview('');
+        setActiveTask('title');
+        try {
+            const result = await suggestTitleAndAbstract(draft);
+            setReview(result);
+        } catch (error) {
+            console.error("Error getting suggestions:", error);
+            setReview("Sorry, an error occurred while fetching suggestions.");
+        } finally {
+            setLoading(false);
+            setActiveTask(null);
+        }
+    }
+
     return (
         <div>
             <h1 className="text-3xl font-bold text-slate-800 mb-6">AI Draft Reviewer</h1>
@@ -68,7 +88,7 @@ const AIDraftReviewer: React.FC = () => {
                     />
                 </div>
                 <div className="space-y-4">
-                    <h2 className="text-xl font-semibold text-slate-700 mb-2">Choose a Reviewer Persona</h2>
+                    <h2 className="text-xl font-semibold text-slate-700 mb-2">Choose an AI Task</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {Object.values(AIPersona).map((persona) => {
                             const details = personaDetails[persona];
@@ -87,6 +107,17 @@ const AIDraftReviewer: React.FC = () => {
                             );
                         })}
                     </div>
+                     <button
+                        onClick={handleSuggestTitle}
+                        disabled={loading}
+                        className={`w-full p-4 border rounded-lg text-left transition hover:shadow-lg hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed bg-white flex items-center space-x-4`}
+                    >
+                        <DocumentTextIcon className={`w-8 h-8 text-indigo-500`} />
+                        <div>
+                            <h3 className="font-bold text-slate-800">Suggest Title & Abstract</h3>
+                            <p className="text-sm text-slate-500">Generate a compelling title and a concise abstract from your draft.</p>
+                        </div>
+                    </button>
 
                     <div className="bg-white p-6 rounded-lg shadow-md min-h-[20rem]">
                          <h2 className="text-xl font-semibold text-slate-700 mb-4">AI Feedback</h2>

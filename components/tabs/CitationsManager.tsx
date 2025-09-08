@@ -1,36 +1,45 @@
 import React, { useState } from 'react';
 import { GroundingChunk } from '../../types';
 import { TrashIcon, ClipboardDocumentIcon } from '../icons/Icons';
+import { formatCitations } from '../../services/geminiService';
 
 interface CitationsManagerProps {
     citations: GroundingChunk[];
     onUpdateCitations: (citations: GroundingChunk[]) => void;
 }
 
+const CITATION_STYLES = ['APA', 'Vancouver', 'MLA', 'Chicago'];
+
 const CitationsManager: React.FC<CitationsManagerProps> = ({ citations, onUpdateCitations }) => {
     const [copyStatus, setCopyStatus] = useState('Copy Bibliography');
+    const [style, setStyle] = useState('APA');
+    const [isFormatting, setIsFormatting] = useState(false);
 
     const handleRemove = (uri: string) => {
         onUpdateCitations(citations.filter(c => c.web.uri !== uri));
     };
 
-    const handleCopy = () => {
+    const handleCopy = async () => {
         if (citations.length === 0) return;
         
-        const bibliography = citations.map((c, index) => {
-            const title = c.web.title || "Untitled";
-            const uri = c.web.uri;
-            return `${index + 1}. ${title}. Retrieved from ${uri}`;
-        }).join('\n\n');
-
-        navigator.clipboard.writeText(bibliography).then(() => {
-            setCopyStatus('Copied!');
-            setTimeout(() => setCopyStatus('Copy Bibliography'), 2000);
-        }, (err) => {
-            console.error('Could not copy text: ', err);
-            setCopyStatus('Copy Failed');
-            setTimeout(() => setCopyStatus('Copy Bibliography'), 2000);
-        });
+        setIsFormatting(true);
+        try {
+            const bibliography = await formatCitations(citations, style);
+            navigator.clipboard.writeText(bibliography).then(() => {
+                setCopyStatus('Copied!');
+                setTimeout(() => setCopyStatus('Copy Bibliography'), 2000);
+            }, (err) => {
+                console.error('Could not copy text: ', err);
+                setCopyStatus('Copy Failed');
+                 setTimeout(() => setCopyStatus('Copy Bibliography'), 2000);
+            });
+        } catch(error) {
+             console.error('Could not format citations: ', error);
+             setCopyStatus('Format Failed');
+             setTimeout(() => setCopyStatus('Copy Bibliography'), 2000);
+        } finally {
+            setIsFormatting(false);
+        }
     };
     
     return (
@@ -39,14 +48,23 @@ const CitationsManager: React.FC<CitationsManagerProps> = ({ citations, onUpdate
             <div className="bg-white p-8 rounded-lg shadow-md">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
                     <h2 className="text-xl font-semibold text-slate-700">Saved Sources ({citations.length})</h2>
-                    <button 
-                        onClick={handleCopy}
-                        disabled={citations.length === 0}
-                        className="flex items-center space-x-2 bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300 transition"
-                    >
-                        <ClipboardDocumentIcon className="w-5 h-5" />
-                        <span>{copyStatus}</span>
-                    </button>
+                    <div className="flex items-center space-x-2">
+                         <select
+                            value={style}
+                            onChange={(e) => setStyle(e.target.value)}
+                            className="p-2 border border-slate-300 rounded-md bg-white text-sm"
+                         >
+                            {CITATION_STYLES.map(s => <option key={s} value={s}>{s} Style</option>)}
+                        </select>
+                        <button 
+                            onClick={handleCopy}
+                            disabled={citations.length === 0 || isFormatting}
+                            className="flex items-center space-x-2 bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300 transition"
+                        >
+                            <ClipboardDocumentIcon className="w-5 h-5" />
+                            <span>{isFormatting ? 'Formatting...' : copyStatus}</span>
+                        </button>
+                    </div>
                 </div>
 
                 {citations.length > 0 ? (

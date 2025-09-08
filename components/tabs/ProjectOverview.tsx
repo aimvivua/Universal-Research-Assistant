@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ProjectOverviewData, HypothesisSuggestion, StudyDesignSuggestion } from '../../types';
-import { getProjectDetailsFromTitle, getHypothesisSuggestion, getStudyDesignSuggestion, parseGeminiJson } from '../../services/geminiService';
+import { getProjectDetailsFromTitle, getHypothesisSuggestion, getStudyDesignSuggestion, parseGeminiJson, refineText } from '../../services/geminiService';
 import Loader from '../Loader';
+import { MagicWandIcon } from '../icons/Icons';
 
 interface ProjectOverviewProps {
   data: ProjectOverviewData;
@@ -18,6 +19,13 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
   const [loadingSuggestionType, setLoadingSuggestionType] = useState<'hypotheses' | 'design' | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestionState>({});
   
+  // State for the refinement modal
+  const [isRefineModalOpen, setIsRefineModalOpen] = useState(false);
+  const [fieldToRefine, setFieldToRefine] = useState<{ field: keyof ProjectOverviewData; label: string } | null>(null);
+  const [refineInstruction, setRefineInstruction] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
+
+
   const handleTitleBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
     const title = e.target.value;
     if (title && title !== data.title) {
@@ -68,6 +76,28 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
     }
   };
 
+  const openRefineModal = (field: keyof ProjectOverviewData, label: string) => {
+    setFieldToRefine({ field, label });
+    setIsRefineModalOpen(true);
+  };
+
+  const handleRefine = async () => {
+    if (!fieldToRefine || !refineInstruction) return;
+    setIsRefining(true);
+    try {
+        const currentText = data[fieldToRefine.field];
+        const refinedText = await refineText(currentText, refineInstruction);
+        onUpdate({ [fieldToRefine.field]: refinedText });
+    } catch(error) {
+        console.error("Error refining text:", error);
+    } finally {
+        setIsRefining(false);
+        setIsRefineModalOpen(false);
+        setRefineInstruction('');
+        setFieldToRefine(null);
+    }
+  };
+
   const renderInputField = (name: keyof ProjectOverviewData, label: string, placeholder: string, isTextArea = false) => {
     const InputComponent = isTextArea ? 'textarea' : 'input';
     const props = {
@@ -85,7 +115,18 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
     return (
       <div className="mb-6">
         <label htmlFor={name} className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-        <InputComponent {...props} />
+        <div className="relative">
+            <InputComponent {...props} />
+            {isTextArea && (
+                <button 
+                    onClick={() => openRefineModal(name, label)}
+                    className="absolute top-2 right-2 p-1.5 bg-slate-100 rounded-full text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 transition"
+                    title={`Refine ${label} with AI`}
+                >
+                    <MagicWandIcon className="w-4 h-4" />
+                </button>
+            )}
+        </div>
       </div>
     );
   };
@@ -113,13 +154,19 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
                     {loadingSuggestionType === 'hypotheses' && <Loader rows={2} />}
                     {suggestions.hypotheses && (
                         <div className="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-md space-y-2">
-                            <div>
-                                <h4 className="font-semibold text-indigo-800">Primary Hypothesis:</h4>
-                                <p className="text-sm text-indigo-700">{suggestions.hypotheses.primary}</p>
+                             <div className="flex justify-between items-start">
+                                <div>
+                                    <h4 className="font-semibold text-indigo-800">Primary Hypothesis:</h4>
+                                    <p className="text-sm text-indigo-700">{suggestions.hypotheses.primary}</p>
+                                </div>
+                                <button onClick={() => onUpdate({ primaryHypothesis: suggestions.hypotheses?.primary || ''})} className="text-xs bg-indigo-200 text-indigo-800 px-2 py-1 rounded hover:bg-indigo-300">Apply</button>
                             </div>
-                             <div>
-                                <h4 className="font-semibold text-indigo-800">Secondary Hypothesis:</h4>
-                                <p className="text-sm text-indigo-700">{suggestions.hypotheses.secondary}</p>
+                             <div className="flex justify-between items-start">
+                                <div>
+                                    <h4 className="font-semibold text-indigo-800">Secondary Hypothesis:</h4>
+                                    <p className="text-sm text-indigo-700">{suggestions.hypotheses.secondary}</p>
+                                </div>
+                                <button onClick={() => onUpdate({ secondaryHypothesis: suggestions.hypotheses?.secondary || ''})} className="text-xs bg-indigo-200 text-indigo-800 px-2 py-1 rounded hover:bg-indigo-300">Apply</button>
                             </div>
                         </div>
                     )}
@@ -141,6 +188,38 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
             </div>
         </div>
       </div>
+       {isRefineModalOpen && fieldToRefine && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
+                    <h3 className="text-lg font-semibold mb-4">Refine {fieldToRefine.label}</h3>
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-slate-600">Current Text:</label>
+                        <textarea
+                            readOnly
+                            value={data[fieldToRefine.field]}
+                            className="w-full p-2 mt-1 bg-slate-100 border border-slate-300 rounded-md h-28"
+                        />
+                    </div>
+                    <div className="mb-4">
+                        <label htmlFor="refine-instruction" className="block text-sm font-medium text-slate-600">Instruction:</label>
+                         <input
+                            id="refine-instruction"
+                            type="text"
+                            value={refineInstruction}
+                            onChange={(e) => setRefineInstruction(e.target.value)}
+                            placeholder="e.g., Make it more concise"
+                            className="w-full p-2 mt-1 border border-slate-300 rounded-md"
+                        />
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                        <button onClick={() => setIsRefineModalOpen(false)} className="px-4 py-2 bg-slate-200 rounded-md">Cancel</button>
+                        <button onClick={handleRefine} disabled={isRefining} className="px-4 py-2 bg-primary-600 text-white rounded-md disabled:bg-primary-300">
+                            {isRefining ? 'Refining...' : 'Refine'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 };

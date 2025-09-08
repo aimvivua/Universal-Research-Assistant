@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ProjectOverviewData } from '../../types';
-import { reviewMethodology } from '../../services/geminiService';
+import { reviewMethodology, suggestMethodologyField } from '../../services/geminiService';
 import Loader from '../Loader';
+import { SparklesIcon } from '../icons/Icons';
 
 interface StudyMethodologyProps {
     projectData: ProjectOverviewData;
@@ -18,15 +19,23 @@ const studyTypes = [
 ];
 
 const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData }) => {
-    const [studyType, setStudyType] = useState('');
-    const [inclusionCriteria, setInclusionCriteria] = useState('');
-    const [exclusionCriteria, setExclusionCriteria] = useState('');
-    const [primaryVariables, setPrimaryVariables] = useState('');
-    const [secondaryVariables, setSecondaryVariables] = useState('');
+    const [methodology, setMethodology] = useState({
+        studyType: '',
+        inclusionCriteria: '',
+        exclusionCriteria: '',
+        primaryVariables: '',
+        secondaryVariables: '',
+    });
     const [loading, setLoading] = useState(false);
+    const [loadingSuggestion, setLoadingSuggestion] = useState<string | null>(null);
     const [feedback, setFeedback] = useState('');
 
+    const handleInputChange = (field: keyof typeof methodology, value: string) => {
+        setMethodology(prev => ({ ...prev, [field]: value }));
+    }
+
     const handleGetFeedback = async () => {
+        const { studyType, inclusionCriteria, exclusionCriteria, primaryVariables } = methodology;
         if (!studyType || !inclusionCriteria || !exclusionCriteria || !primaryVariables) {
             alert('Please fill out all methodology fields to get feedback.');
             return;
@@ -41,7 +50,7 @@ const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData }) => {
             Inclusion Criteria: ${inclusionCriteria}
             Exclusion Criteria: ${exclusionCriteria}
             Primary Variables: ${primaryVariables}
-            Secondary Variables: ${secondaryVariables}
+            Secondary Variables: ${methodology.secondaryVariables}
         `;
 
         try {
@@ -54,6 +63,59 @@ const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData }) => {
             setLoading(false);
         }
     };
+    
+    const handleSuggestField = async (field: 'inclusionCriteria' | 'exclusionCriteria' | 'primaryVariables' | 'secondaryVariables') => {
+        if (!projectData.title) {
+            alert("Please provide a project title first.");
+            return;
+        }
+        
+        // FIX: Add explicit type to fieldMap to satisfy the type requirements of suggestMethodologyField.
+        const fieldMap: Record<typeof field, 'Inclusion Criteria' | 'Exclusion Criteria' | 'Primary Variables' | 'Secondary Variables'> = {
+            inclusionCriteria: 'Inclusion Criteria',
+            exclusionCriteria: 'Exclusion Criteria',
+            primaryVariables: 'Primary Variables',
+            secondaryVariables: 'Secondary Variables',
+        };
+
+        setLoadingSuggestion(field);
+        try {
+            const projectContext = `Title: ${projectData.title}\nPrimary Questions: ${projectData.primaryQuestions}`;
+            const suggestion = await suggestMethodologyField(projectContext, fieldMap[field]);
+            handleInputChange(field, suggestion);
+        } catch (error) {
+            console.error(`Error suggesting ${field}:`, error);
+        } finally {
+            setLoadingSuggestion(null);
+        }
+    }
+
+    const renderTextareaWithSuggest = (
+        id: 'inclusionCriteria' | 'exclusionCriteria' | 'primaryVariables' | 'secondaryVariables',
+        label: string,
+        placeholder: string,
+        rows: number
+    ) => (
+        <div>
+            <label className="block text-sm font-medium text-slate-700">{label}</label>
+            <div className="relative">
+                <textarea 
+                    value={methodology[id]} 
+                    onChange={e => handleInputChange(id, e.target.value)} 
+                    rows={rows} 
+                    className="mt-1 w-full p-2 border border-slate-300 rounded-md" 
+                    placeholder={placeholder}
+                />
+                <button
+                    onClick={() => handleSuggestField(id)}
+                    disabled={!!loadingSuggestion}
+                    className="absolute top-2 right-2 p-1 text-xs bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 disabled:bg-slate-200"
+                >
+                   {loadingSuggestion === id ? '...' : 'AI-Suggest'}
+                </button>
+            </div>
+        </div>
+    );
 
     return (
         <div>
@@ -64,33 +126,22 @@ const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData }) => {
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Study Type</label>
-                            <select value={studyType} onChange={e => setStudyType(e.target.value)} className="mt-1 w-full p-2 border border-slate-300 rounded-md">
+                            <select value={methodology.studyType} onChange={e => handleInputChange('studyType', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 rounded-md">
                                 <option value="">Select a study type</option>
                                 {studyTypes.map(type => <option key={type} value={type}>{type}</option>)}
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Inclusion Criteria</label>
-                            <textarea value={inclusionCriteria} onChange={e => setInclusionCriteria(e.target.value)} rows={4} className="mt-1 w-full p-2 border border-slate-300 rounded-md" placeholder="e.g., All neonates admitted to the NICU with suspected sepsis..."></textarea>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Exclusion Criteria</label>
-                            <textarea value={exclusionCriteria} onChange={e => setExclusionCriteria(e.target.value)} rows={4} className="mt-1 w-full p-2 border border-slate-300 rounded-md" placeholder="e.g., Neonates with major congenital anomalies..."></textarea>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Primary Variables / Exposures</label>
-                            <textarea value={primaryVariables} onChange={e => setPrimaryVariables(e.target.value)} rows={2} className="mt-1 w-full p-2 border border-slate-300 rounded-md" placeholder="e.g., Serum levels of Biomarker X, CRP levels"></textarea>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Secondary Variables / Outcomes</label>
-                            <textarea value={secondaryVariables} onChange={e => setSecondaryVariables(e.target.value)} rows={2} className="mt-1 w-full p-2 border border-slate-300 rounded-md" placeholder="e.g., Length of hospital stay, mortality, severity score"></textarea>
-                        </div>
+                        {renderTextareaWithSuggest('inclusionCriteria', 'Inclusion Criteria', 'e.g., All neonates admitted to the NICU with suspected sepsis...', 4)}
+                        {renderTextareaWithSuggest('exclusionCriteria', 'Exclusion Criteria', 'e.g., Neonates with major congenital anomalies...', 4)}
+                        {renderTextareaWithSuggest('primaryVariables', 'Primary Variables / Exposures', 'e.g., Serum levels of Biomarker X, CRP levels', 2)}
+                        {renderTextareaWithSuggest('secondaryVariables', 'Secondary Variables / Outcomes', 'e.g., Length of hospital stay, mortality, severity score', 2)}
                     </div>
 
                     {/* Feedback Side */}
                     <div className="space-y-4">
-                        <button onClick={handleGetFeedback} disabled={loading} className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300 transition">
-                            {loading ? 'Analyzing...' : 'Get AI Feedback on Methodology'}
+                        <button onClick={handleGetFeedback} disabled={loading} className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 disabled:bg-indigo-300 transition flex items-center justify-center space-x-2">
+                            <SparklesIcon className="w-5 h-5"/>
+                            <span>{loading ? 'Analyzing...' : 'Get AI Feedback on Methodology'}</span>
                         </button>
                         <div className="p-4 bg-slate-50 border rounded-lg min-h-[20rem]">
                              <h3 className="text-lg font-semibold text-slate-700 mb-2">AI Feedback</h3>

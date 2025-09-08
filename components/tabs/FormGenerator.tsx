@@ -1,16 +1,16 @@
-
 import React, { useState, useRef } from 'react';
-import { ProjectOverviewData } from '../../types';
+import { ProjectOverviewData, DataManagementData } from '../../types';
 import { PrintIcon } from '../icons/Icons';
 import PrintableForm from './PrintableForm';
 
 interface FormGeneratorProps {
   projectData: ProjectOverviewData;
+  dataManagement: DataManagementData;
 }
 
 type FormType = 'crf' | 'ethics' | null;
 
-const FormGenerator: React.FC<FormGeneratorProps> = ({ projectData }) => {
+const FormGenerator: React.FC<FormGeneratorProps> = ({ projectData, dataManagement }) => {
   const [formType, setFormType] = useState<FormType>(null);
   const printableRef = useRef<HTMLDivElement>(null);
 
@@ -32,18 +32,25 @@ const FormGenerator: React.FC<FormGeneratorProps> = ({ projectData }) => {
       
       <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
-              <div className="border p-2"><strong>Patient ID:</strong> ____________</div>
               <div className="border p-2"><strong>Date of Admission:</strong> ____________</div>
+              <div className="border p-2"><strong>Date of Discharge:</strong> ____________</div>
           </div>
           <div className="border p-2"><strong>Inclusion Criteria Met:</strong> [ ] Yes [ ] No</div>
           <div className="border p-2"><strong>Exclusion Criteria Met:</strong> [ ] Yes [ ] No</div>
-          <h4 className="font-semibold pt-4">Biochemical Markers</h4>
-          <div className="border p-2"><strong>Marker A Level:</strong> ____________</div>
-          <div className="border p-2"><strong>Marker B Level:</strong> ____________</div>
-          <div className="border p-2"><strong>C-Reactive Protein (CRP):</strong> ____________</div>
+          
+          <h4 className="font-semibold pt-4">Study Variables</h4>
+          {dataManagement.columns && dataManagement.columns.length > 0 ? (
+            dataManagement.columns.map(col => (
+              <div key={col.id} className="border p-2 grid grid-cols-2">
+                <strong>{col.name}:</strong> <span>_________________</span>
+              </div>
+            ))
+          ) : (
+             <div className="border p-2 text-slate-500">No variables defined in Data Management tab.</div>
+          )}
+          
           <h4 className="font-semibold pt-4">Outcome</h4>
-          <div className="border p-2"><strong>Diagnosis:</strong> [ ] Sepsis [ ] No Sepsis</div>
-          <div className="border p-2"><strong>Date of Discharge:</strong> ____________</div>
+          <div className="border p-2"><strong>Final Diagnosis:</strong> ________________________________</div>
       </div>
     </>
   );
@@ -54,7 +61,7 @@ const FormGenerator: React.FC<FormGeneratorProps> = ({ projectData }) => {
         <div className="space-y-6 text-base">
             <section><strong className="block">1. Project Title:</strong><p className="p-2 border">{projectData.title || 'Not specified'}</p></section>
             <section><strong className="block">2. Primary Investigator:</strong><p className="p-2 border">____________________</p></section>
-            <section><strong className="block">3. Introduction & Rationale:</strong><p className="p-2 border h-24">Briefly describe the background of neonatal sepsis and the need for better biochemical markers.</p></section>
+            <section><strong className="block">3. Introduction & Rationale:</strong><p className="p-2 border h-24">Briefly describe the background of the study and its justification.</p></section>
             <section><strong className="block">4. Research Questions:</strong>
                 <div className="p-2 border">
                     <p><strong>Primary:</strong> {projectData.primaryQuestions || 'Not specified'}</p>
@@ -68,7 +75,7 @@ const FormGenerator: React.FC<FormGeneratorProps> = ({ projectData }) => {
                 </div>
             </section>
             <section><strong className="block">6. Methodology:</strong><p className="p-2 border h-24">Describe study design, patient population, sampling method, and statistical plan.</p></section>
-            <section><strong className="block">7. Ethical Considerations:</strong><p className="p-2 border h-24">Informed consent will be obtained from the parents/guardians of all neonates. Patient data will be anonymized to ensure confidentiality.</p></section>
+            <section><strong className="block">7. Ethical Considerations:</strong><p className="p-2 border h-24">Informed consent will be obtained from participants. Patient data will be anonymized to ensure confidentiality.</p></section>
         </div>
       </>
   );

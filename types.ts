@@ -81,4 +81,6 @@ export interface GroundingChunk {
 export interface LiteratureSearchResult {
     summary: string;
     sources: GroundingChunk[];
+    keyThemes: string[];
+    relatedQueries: string[];
 }
