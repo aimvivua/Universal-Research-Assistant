@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { ProjectOverviewData, StudyMethodologyData } from '../../types';
-import { reviewMethodology, suggestMethodologyField, suggestSamplingMethod } from '../../services/geminiService';
+import { ProjectOverviewData } from '../../types';
+import { reviewMethodology, suggestMethodologyField } from '../../services/geminiService';
 import Loader from '../Loader';
 import { SparklesIcon } from '../icons/Icons';
 
 interface StudyMethodologyProps {
     projectData: ProjectOverviewData;
-    data: StudyMethodologyData;
-    onUpdate: (data: Partial<StudyMethodologyData>) => void;
 }
 
 const studyTypes = [
@@ -20,17 +18,24 @@ const studyTypes = [
     "Diagnostic Accuracy Study"
 ];
 
-const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData, data, onUpdate }) => {
+const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData }) => {
+    const [methodology, setMethodology] = useState({
+        studyType: '',
+        inclusionCriteria: '',
+        exclusionCriteria: '',
+        primaryVariables: '',
+        secondaryVariables: '',
+    });
     const [loading, setLoading] = useState(false);
     const [loadingSuggestion, setLoadingSuggestion] = useState<string | null>(null);
     const [feedback, setFeedback] = useState('');
 
-    const handleInputChange = (field: keyof StudyMethodologyData, value: string) => {
-        onUpdate({ [field]: value });
+    const handleInputChange = (field: keyof typeof methodology, value: string) => {
+        setMethodology(prev => ({ ...prev, [field]: value }));
     }
 
     const handleGetFeedback = async () => {
-        const { studyType, inclusionCriteria, exclusionCriteria, primaryVariables } = data;
+        const { studyType, inclusionCriteria, exclusionCriteria, primaryVariables } = methodology;
         if (!studyType || !inclusionCriteria || !exclusionCriteria || !primaryVariables) {
             alert('Please fill out all methodology fields to get feedback.');
             return;
@@ -45,7 +50,7 @@ const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData, data, 
             Inclusion Criteria: ${inclusionCriteria}
             Exclusion Criteria: ${exclusionCriteria}
             Primary Variables: ${primaryVariables}
-            Secondary Variables: ${data.secondaryVariables}
+            Secondary Variables: ${methodology.secondaryVariables}
         `;
 
         try {
@@ -65,6 +70,7 @@ const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData, data, 
             return;
         }
         
+        // FIX: Add explicit type to fieldMap to satisfy the type requirements of suggestMethodologyField.
         const fieldMap: Record<typeof field, 'Inclusion Criteria' | 'Exclusion Criteria' | 'Primary Variables' | 'Secondary Variables'> = {
             inclusionCriteria: 'Inclusion Criteria',
             exclusionCriteria: 'Exclusion Criteria',
@@ -84,23 +90,6 @@ const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData, data, 
         }
     }
 
-    const handleSuggestSamplingMethod = async () => {
-        if (!projectData.title) {
-            alert("Please provide a project title first.");
-            return;
-        }
-        setLoadingSuggestion('samplingMethod');
-        try {
-            const projectContext = `Title: ${projectData.title}\nStudy Design: ${data.studyType}`;
-            const suggestion = await suggestSamplingMethod(projectContext);
-            onUpdate({ samplingMethod: suggestion });
-        } catch (error) {
-            console.error(`Error suggesting sampling method:`, error);
-        } finally {
-            setLoadingSuggestion(null);
-        }
-    }
-
     const renderTextareaWithSuggest = (
         id: 'inclusionCriteria' | 'exclusionCriteria' | 'primaryVariables' | 'secondaryVariables',
         label: string,
@@ -111,7 +100,7 @@ const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData, data, 
             <label className="block text-sm font-medium text-slate-700">{label}</label>
             <div className="relative">
                 <textarea 
-                    value={data[id]} 
+                    value={methodology[id]} 
                     onChange={e => handleInputChange(id, e.target.value)} 
                     rows={rows} 
                     className="mt-1 w-full p-2 border border-slate-300 rounded-md" 
@@ -137,7 +126,7 @@ const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData, data, 
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700">Study Type</label>
-                            <select value={data.studyType} onChange={e => handleInputChange('studyType', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 rounded-md">
+                            <select value={methodology.studyType} onChange={e => handleInputChange('studyType', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 rounded-md">
                                 <option value="">Select a study type</option>
                                 {studyTypes.map(type => <option key={type} value={type}>{type}</option>)}
                             </select>
@@ -146,25 +135,6 @@ const StudyMethodology: React.FC<StudyMethodologyProps> = ({ projectData, data, 
                         {renderTextareaWithSuggest('exclusionCriteria', 'Exclusion Criteria', 'e.g., Neonates with major congenital anomalies...', 4)}
                         {renderTextareaWithSuggest('primaryVariables', 'Primary Variables / Exposures', 'e.g., Serum levels of Biomarker X, CRP levels', 2)}
                         {renderTextareaWithSuggest('secondaryVariables', 'Secondary Variables / Outcomes', 'e.g., Length of hospital stay, mortality, severity score', 2)}
-                         <div>
-                            <label className="block text-sm font-medium text-slate-700">Sampling Method</label>
-                            <div className="relative">
-                                <textarea 
-                                    value={data.samplingMethod} 
-                                    onChange={e => handleInputChange('samplingMethod', e.target.value)} 
-                                    rows={4} 
-                                    className="mt-1 w-full p-2 border border-slate-300 rounded-md" 
-                                    placeholder="e.g., Convenience sampling of all eligible patients..."
-                                />
-                                <button
-                                    onClick={handleSuggestSamplingMethod}
-                                    disabled={!!loadingSuggestion}
-                                    className="absolute top-2 right-2 p-1 text-xs bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 disabled:bg-slate-200"
-                                >
-                                {loadingSuggestion === 'samplingMethod' ? '...' : 'AI-Suggest'}
-                                </button>
-                            </div>
-                        </div>
                     </div>
 
                     {/* Feedback Side */}

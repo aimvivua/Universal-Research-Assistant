@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ProjectOverviewData, HypothesisSuggestion, StudyDesignSuggestion } from '../../types';
 import { getProjectDetailsFromTitle, getHypothesisSuggestion, getStudyDesignSuggestion, parseGeminiJson, refineText } from '../../services/geminiService';
 import Loader from '../Loader';
-import { MagicWandIcon, SparklesIcon } from '../icons/Icons';
+import { MagicWandIcon } from '../icons/Icons';
 
 interface ProjectOverviewProps {
   data: ProjectOverviewData;
@@ -26,25 +26,25 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
   const [isRefining, setIsRefining] = useState(false);
 
 
-  const handleGenerateDetails = async () => {
-    if (!data.title) {
-        alert("Please enter a project title first.");
-        return;
-    }
-    setLoading(true);
-    setSuggestions({});
-    try {
-        const responseText = await getProjectDetailsFromTitle(data.title);
+  const handleTitleBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const title = e.target.value;
+    if (title && title !== data.title) {
+      onUpdate({ title });
+      setLoading(true);
+      setSuggestions({});
+      try {
+        const responseText = await getProjectDetailsFromTitle(title);
         const parsedData = parseGeminiJson<Omit<ProjectOverviewData, 'title'>>(responseText);
         if (parsedData) {
-            onUpdate(parsedData);
+          onUpdate(parsedData);
         } else {
             console.error("Failed to parse AI response or response was empty.");
         }
-    } catch (error) {
+      } catch (error) {
         console.error("Error fetching project details from AI:", error);
-    } finally {
+      } finally {
         setLoading(false);
+      }
     }
   };
 
@@ -66,11 +66,21 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
         } else {
             const result = await getStudyDesignSuggestion(data.title, data.primaryQuestions);
             setSuggestions(prev => ({ ...prev, design: result }));
+            if (result) {
+                onUpdate({
+                    studyDesign: result.design,
+                    sampleSize: result.sampleSize,
+                    studyDuration: result.duration,
+                });
+            }
         }
     } catch (error) {
         console.error(`Error fetching ${type} suggestion:`, error);
-        if (type === 'hypotheses') setSuggestions(prev => ({ ...prev, hypotheses: null }));
-        else setSuggestions(prev => ({ ...prev, design: null }));
+        if (type === 'hypotheses') {
+            setSuggestions(prev => ({ ...prev, hypotheses: null }));
+        } else {
+            setSuggestions(prev => ({ ...prev, design: null }));
+        }
     } finally {
         setLoadingSuggestionType(null);
     }
@@ -107,9 +117,11 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
       onChange: handleInputChange,
       placeholder: placeholder,
       className: "w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition",
-      rows: isTextArea ? 6 : undefined,
+      rows: isTextArea ? 4 : undefined,
     };
-   
+    if (name === 'title') {
+      (props as any).onBlur = handleTitleBlur;
+    }
     return (
       <div className="mb-6">
         <label htmlFor={name} className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
@@ -131,35 +143,24 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
   
   return (
     <div>
-      <h1 className="text-3xl font-bold text-slate-800 mb-2">Project Overview</h1>
-      <p className="text-slate-500 mb-6">Start with a title, then let our AI help you flesh out the details.</p>
+      <h1 className="text-3xl font-bold text-slate-800 mb-6">Project Overview</h1>
       <div className="bg-white p-8 rounded-lg shadow-md">
-        {renderInputField('title', 'Project Title', 'Enter Your Project Title Here')}
-        
-        <button
-            onClick={handleGenerateDetails}
-            disabled={loading || !data.title}
-            className="w-full flex justify-center items-center space-x-2 bg-primary-600 text-white font-bold py-3 px-4 rounded-md hover:bg-primary-700 disabled:bg-primary-300 transition mb-6"
-        >
-            <SparklesIcon className="w-5 h-5"/>
-            <span>{loading ? 'Generating...' : 'Generate Details from Title'}</span>
-        </button>
-
         {loading ? <Loader /> : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                <div>
-                    {renderInputField('primaryQuestions', 'Primary Research Questions', 'e.g., What is the diagnostic accuracy of biomarker X for neonatal sepsis?', true)}
-                    {renderInputField('secondaryQuestions', 'Secondary Research Questions', 'e.g., What is the correlation between biomarker X levels and disease severity?', true)}
-                    {renderInputField('primaryHypothesis', 'Primary Hypothesis', 'e.g., Biomarker X has a sensitivity of over 90%...', true)}
-                    {renderInputField('secondaryHypothesis', 'Secondary Hypothesis', 'e.g., There is a positive correlation between biomarker X levels...', true)}
+            <>
+                {renderInputField('title', 'Project Title', 'Enter Your Project Title Here')}
+                {renderInputField('primaryQuestions', 'Primary Research Questions', 'e.g., What is the diagnostic accuracy of biomarker X for neonatal sepsis?', true)}
+                {renderInputField('secondaryQuestions', 'Secondary Research Questions', 'e.g., What is the correlation between biomarker X levels and disease severity?', true)}
+                {renderInputField('primaryHypothesis', 'Primary Hypothesis', 'e.g., Biomarker X has a sensitivity of over 90%...', true)}
+                {renderInputField('secondaryHypothesis', 'Secondary Hypothesis', 'e.g., There is a positive correlation between biomarker X levels...', true)}
+                
+                <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-lg font-semibold text-slate-600 mb-4">Study Logistics</h3>
+                    {renderInputField('studyDesign', 'Study Design', 'e.g., Prospective Cohort Study')}
+                    {renderInputField('sampleSize', 'Sample Size', 'e.g., 250 participants')}
+                    {renderInputField('studyDuration', 'Study Duration', 'e.g., 24 months')}
                 </div>
-                <div>
-                    {renderInputField('keywords', 'Keywords', 'e.g., Neonatal Sepsis, Biomarkers, Diagnosis...', true)}
-                    {renderInputField('ethicalConsiderations', 'Ethical Considerations', 'e.g., Informed consent will be obtained from all participants...', true)}
-                </div>
-            </div>
+            </>
         )}
-
         <div className="mt-8 border-t pt-6">
             <h2 className="text-xl font-semibold text-slate-700 mb-4">AI-Powered Suggestions</h2>
             <div className="grid md:grid-cols-2 gap-6">
@@ -194,10 +195,10 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ data, onUpdate }) => 
                     {loadingSuggestionType === 'design' && <Loader rows={3} />}
                     {suggestions.design && (
                         <div className="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-md space-y-2">
-                            <div><h4 className="font-semibold text-indigo-800">Study Design:</h4><p className="text-sm text-indigo-700">{suggestions.design.design}</p></div>
-                            <div><h4 className="font-semibold text-indigo-800">Justification:</h4><p className="text-sm text-indigo-700">{suggestions.design.justification}</p></div>
-                            <div><h4 className="font-semibold text-indigo-800">Sample Size:</h4><p className="text-sm text-indigo-700">{suggestions.design.sampleSize}</p></div>
-                            <div><h4 className="font-semibold text-indigo-800">Duration:</h4><p className="text-sm text-indigo-700">{suggestions.design.duration}</p></div>
+                            <p className="text-sm font-semibold text-indigo-800">Study fields have been populated. Here's the AI's justification:</p>
+                            <div>
+                                <p className="text-sm text-indigo-700">{suggestions.design.justification}</p>
+                            </div>
                         </div>
                     )}
                 </div>

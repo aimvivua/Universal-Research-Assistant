@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { AIPersona, JournalSuggestion } from '../../types';
-import { reviewDraftWithPersona, suggestTitleAndAbstract, suggestJournals } from '../../services/geminiService';
+import { AIPersona } from '../../types';
+import { reviewDraftWithPersona, suggestTitleAndAbstract } from '../../services/geminiService';
 import Loader from '../Loader';
-import { UserVoiceIcon, BrainCircuitIcon, BalanceScaleIcon, GlobeCommunityIcon, DocumentTextIcon, NewspaperIcon } from '../icons/Icons';
+import { UserVoiceIcon, BrainCircuitIcon, BalanceScaleIcon, GlobeCommunityIcon, DocumentTextIcon } from '../icons/Icons';
 
 const personaDetails = {
     [AIPersona.SubjectGuide]: {
@@ -30,7 +30,7 @@ const personaDetails = {
 
 const AIDraftReviewer: React.FC = () => {
     const [draft, setDraft] = useState('');
-    const [review, setReview] = useState<string | JournalSuggestion[] | null>(null);
+    const [review, setReview] = useState('');
     const [loading, setLoading] = useState(false);
     const [activeTask, setActiveTask] = useState<string | null>(null);
 
@@ -68,26 +68,6 @@ const AIDraftReviewer: React.FC = () => {
         } catch (error) {
             console.error("Error getting suggestions:", error);
             setReview("Sorry, an error occurred while fetching suggestions.");
-        } finally {
-            setLoading(false);
-            setActiveTask(null);
-        }
-    }
-
-    const handleSuggestJournals = async () => {
-         if (!draft.trim()) {
-            alert("Please paste your draft first.");
-            return;
-        }
-        setLoading(true);
-        setReview(null);
-        setActiveTask('journals');
-        try {
-            const result = await suggestJournals(draft);
-            setReview(result);
-        } catch (error) {
-            console.error("Error getting suggestions:", error);
-            setReview("Sorry, an error occurred while fetching journal suggestions.");
         } finally {
             setLoading(false);
             setActiveTask(null);
@@ -138,36 +118,11 @@ const AIDraftReviewer: React.FC = () => {
                             <p className="text-sm text-slate-500">Generate a compelling title and a concise abstract from your draft.</p>
                         </div>
                     </button>
-                     <button
-                        onClick={handleSuggestJournals}
-                        disabled={loading}
-                        className={`w-full p-4 border rounded-lg text-left transition hover:shadow-lg hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed bg-white flex items-center space-x-4`}
-                    >
-                        <NewspaperIcon className={`w-8 h-8 text-indigo-500`} />
-                        <div>
-                            <h3 className="font-bold text-slate-800">Suggest Journals</h3>
-                            <p className="text-sm text-slate-500">Find suitable academic journals for your manuscript.</p>
-                        </div>
-                    </button>
 
                     <div className="bg-white p-6 rounded-lg shadow-md min-h-[20rem]">
                          <h2 className="text-xl font-semibold text-slate-700 mb-4">AI Feedback</h2>
                          {loading ? <Loader /> : (
-                            <>
-                                {typeof review === 'string' && <div className="text-slate-700 whitespace-pre-wrap text-sm">{review || "Your review will appear here..."}</div>}
-                                {Array.isArray(review) && (
-                                    <div className="space-y-4">
-                                        {review.map((journal, index) => (
-                                            <div key={index} className="p-3 bg-slate-50 rounded-md border">
-                                                <h4 className="font-bold text-slate-800">{journal.name}</h4>
-                                                <p className="text-sm text-slate-600 mt-1"><strong className="font-medium">Scope:</strong> {journal.scope}</p>
-                                                <p className="text-sm text-slate-600 mt-1"><strong className="font-medium">Reason:</strong> {journal.reason}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                {!review && <div className="text-slate-500">Your review will appear here...</div>}
-                            </>
+                            <div className="text-slate-700 whitespace-pre-wrap text-sm">{review || "Your review will appear here..."}</div>
                          )}
                     </div>
 

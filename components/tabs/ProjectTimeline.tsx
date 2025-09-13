@@ -74,6 +74,7 @@ const ProjectTimeline: React.FC<ProjectTimelineProps> = ({ tasks, onUpdate, proj
 
         <div className="space-y-4">
           {tasks.map(task => {
+            if(!task.start || !task.end) return null;
             const offsetDays = getDaysDiff(minDate, task.start) -1;
             const durationDays = getDaysDiff(task.start, task.end);
             const offsetPercent = totalDays > 0 ? (offsetDays / totalDays) * 100 : 0;
