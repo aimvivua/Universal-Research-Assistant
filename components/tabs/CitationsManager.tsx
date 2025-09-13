@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GroundingChunk } from '../../types';
-import { TrashIcon, ClipboardDocumentIcon } from '../icons/Icons';
-import { formatCitations } from '../../services/geminiService';
+import { TrashIcon, ClipboardDocumentIcon, LightbulbIcon } from '../icons/Icons';
+import { formatCitations, summarizeSourceByTitle } from '../../services/geminiService';
 
 interface CitationsManagerProps {
     citations: GroundingChunk[];
@@ -14,6 +14,8 @@ const CitationsManager: React.FC<CitationsManagerProps> = ({ citations, onUpdate
     const [copyStatus, setCopyStatus] = useState('Copy Bibliography');
     const [style, setStyle] = useState('APA');
     const [isFormatting, setIsFormatting] = useState(false);
+    const [summaries, setSummaries] = useState<Record<string, string>>({});
+    const [loadingSummary, setLoadingSummary] = useState<string | null>(null);
 
     const handleRemove = (uri: string) => {
         onUpdateCitations(citations.filter(c => c.web.uri !== uri));
@@ -42,6 +44,19 @@ const CitationsManager: React.FC<CitationsManagerProps> = ({ citations, onUpdate
         }
     };
     
+    const handleSummarize = async (uri: string, title: string) => {
+        setLoadingSummary(uri);
+        try {
+            const summary = await summarizeSourceByTitle(title);
+            setSummaries(prev => ({ ...prev, [uri]: summary }));
+        } catch(err) {
+            console.error("Error summarizing source:", err);
+            setSummaries(prev => ({ ...prev, [uri]: "Could not generate summary." }));
+        } finally {
+            setLoadingSummary(null);
+        }
+    }
+
     return (
         <div>
             <h1 className="text-3xl font-bold text-slate-800 mb-6">Citations Manager</h1>
@@ -70,27 +85,45 @@ const CitationsManager: React.FC<CitationsManagerProps> = ({ citations, onUpdate
                 {citations.length > 0 ? (
                     <ul className="space-y-4">
                         {citations.map((citation, index) => (
-                            <li key={citation.web.uri} className="flex items-center justify-between p-3 bg-slate-50 rounded-md border border-slate-200">
-                                <div className="flex-1 truncate">
-                                    <span className="text-slate-500 mr-2">{index + 1}.</span>
-                                    <a
-                                        href={citation.web.uri}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="font-medium text-primary-700 hover:underline"
-                                        title={citation.web.title || 'Untitled Source'}
-                                    >
-                                        {citation.web.title || 'Untitled Source'}
-                                    </a>
+                            <li key={citation.web.uri} className="p-3 bg-slate-50 rounded-md border border-slate-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex-1 truncate">
+                                        <span className="text-slate-500 mr-2">{index + 1}.</span>
+                                        <a
+                                            href={citation.web.uri}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="font-medium text-primary-700 hover:underline"
+                                            title={citation.web.title || 'Untitled Source'}
+                                        >
+                                            {citation.web.title || 'Untitled Source'}
+                                        </a>
+                                    </div>
+                                    <div className="flex items-center space-x-2 ml-4">
+                                        <button
+                                            onClick={() => handleSummarize(citation.web.uri, citation.web.title || '')}
+                                            disabled={!!loadingSummary}
+                                            className="text-slate-400 hover:text-indigo-500 transition"
+                                            title="Summarize with AI"
+                                        >
+                                            <LightbulbIcon className="w-5 h-5"/>
+                                        </button>
+                                        <button 
+                                            onClick={() => handleRemove(citation.web.uri)}
+                                            className="text-slate-400 hover:text-red-500 transition"
+                                            title="Remove citation"
+                                            aria-label="Remove citation"
+                                        >
+                                            <TrashIcon className="w-5 h-5"/>
+                                        </button>
+                                    </div>
                                 </div>
-                                <button 
-                                    onClick={() => handleRemove(citation.web.uri)}
-                                    className="ml-4 text-slate-400 hover:text-red-500 transition"
-                                    title="Remove citation"
-                                    aria-label="Remove citation"
-                                >
-                                    <TrashIcon className="w-5 h-5"/>
-                                </button>
+                                {loadingSummary === citation.web.uri && <div className="text-sm text-slate-500 mt-2">Summarizing...</div>}
+                                {summaries[citation.web.uri] && (
+                                    <div className="mt-2 pt-2 border-t border-slate-200 text-sm text-slate-600">
+                                        <p><strong className="font-medium text-indigo-700">AI Summary:</strong> {summaries[citation.web.uri]}</p>
+                                    </div>
+                                )}
                             </li>
                         ))}
                     </ul>

@@ -2,7 +2,8 @@
 import { AppState, Tab, AIPersona } from './types';
 import { 
     BookOpenIcon, ChartBarIcon, BeakerIcon, UsersIcon, DocumentTextIcon, 
-    SparklesIcon, ClipboardDocumentListIcon, CalendarDaysIcon, QuestionMarkCircleIcon, WrenchScrewdriverIcon, BookmarkSquareIcon
+    SparklesIcon, ClipboardDocumentListIcon, CalendarDaysIcon, QuestionMarkCircleIcon, 
+    WrenchScrewdriverIcon, BookmarkSquareIcon, PaperAirplaneIcon
 } from './components/icons/Icons';
 
 export const TABS = [
@@ -17,6 +18,7 @@ export const TABS = [
   { id: Tab.FormGenerator, icon: DocumentTextIcon },
   { id: Tab.ProjectTimeline, icon: CalendarDaysIcon },
   { id: Tab.UserManual, icon: QuestionMarkCircleIcon },
+  { id: Tab.Feedback, icon: PaperAirplaneIcon },
 ];
 
 export const INITIAL_STATE: AppState = {
@@ -26,9 +28,16 @@ export const INITIAL_STATE: AppState = {
     secondaryQuestions: '',
     primaryHypothesis: '',
     secondaryHypothesis: '',
-    studyDesign: '',
-    sampleSize: '',
-    studyDuration: '',
+    keywords: '',
+    ethicalConsiderations: '',
+  },
+  studyMethodology: {
+    studyType: '',
+    inclusionCriteria: '',
+    exclusionCriteria: '',
+    primaryVariables: '',
+    secondaryVariables: '',
+    samplingMethod: '',
   },
   projectTimeline: {
     tasks: [

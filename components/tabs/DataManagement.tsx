@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DataManagementData } from '../../types';
-import { generateSampleData } from '../../services/geminiService';
+import { generateSampleData, suggestAnalysisPlan } from '../../services/geminiService';
+import Loader from '../Loader';
 
 interface DataManagementProps {
   data: DataManagementData;
@@ -12,6 +13,10 @@ const DataManagement: React.FC<DataManagementProps> = ({ data, onUpdate }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [rowCount, setRowCount] = useState(10);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  const [analysisPlan, setAnalysisPlan] = useState('');
+  const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false);
+
   
   const handleAddColumn = () => {
     if (newColumnName.trim() === '') return;
@@ -66,6 +71,25 @@ const DataManagement: React.FC<DataManagementProps> = ({ data, onUpdate }) => {
     }
   };
 
+  const handleSuggestAnalysis = async () => {
+    if (data.columns.length < 2) {
+        alert("Please define at least two variables to suggest an analysis plan.");
+        return;
+    }
+    setIsGeneratingAnalysis(true);
+    setAnalysisPlan('');
+    setIsAnalysisModalOpen(true);
+    try {
+        const plan = await suggestAnalysisPlan(data.columns);
+        setAnalysisPlan(plan);
+    } catch(error) {
+        console.error("Failed to generate analysis plan:", error);
+        setAnalysisPlan("Sorry, an error occurred while generating the plan.");
+    } finally {
+        setIsGeneratingAnalysis(false);
+    }
+  };
+
   const exportToCSV = () => {
     const headers = data.columns.map(c => c.name).join(',');
     const rows = data.rows.map(row => 
@@ -101,6 +125,7 @@ const DataManagement: React.FC<DataManagementProps> = ({ data, onUpdate }) => {
             <button onClick={handleAddColumn} className="bg-primary-600 text-white font-bold py-2 px-4 rounded-md hover:bg-primary-700">Add Column</button>
             <button onClick={handleAddRow} className="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">Add Row</button>
             <button onClick={() => setIsModalOpen(true)} className="bg-amber-500 text-white font-bold py-2 px-4 rounded-md hover:bg-amber-600">Generate Sample Data</button>
+            <button onClick={handleSuggestAnalysis} className="bg-purple-600 text-white font-bold py-2 px-4 rounded-md hover:bg-purple-700">Suggest Analysis Plan</button>
             <button onClick={exportToCSV} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700">Export to CSV</button>
         </div>
         
@@ -156,6 +181,21 @@ const DataManagement: React.FC<DataManagementProps> = ({ data, onUpdate }) => {
                         <button onClick={handleGenerateData} disabled={isGenerating} className="px-4 py-2 bg-primary-600 text-white rounded-md disabled:bg-primary-300">
                             {isGenerating ? 'Generating...' : 'Generate'}
                         </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        {isAnalysisModalOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
+                    <h3 className="text-lg font-semibold mb-4">Suggested Data Analysis Plan</h3>
+                    <div className="mb-4 p-4 bg-slate-50 border rounded-md min-h-[10rem] max-h-96 overflow-y-auto">
+                        {isGeneratingAnalysis ? <Loader /> : (
+                            <div className="text-slate-700 whitespace-pre-wrap text-sm">{analysisPlan}</div>
+                        )}
+                    </div>
+                    <div className="flex justify-end">
+                        <button onClick={() => setIsAnalysisModalOpen(false)} className="px-4 py-2 bg-slate-200 rounded-md">Close</button>
                     </div>
                 </div>
             </div>

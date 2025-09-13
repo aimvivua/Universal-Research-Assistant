@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
-import { AIPersona, Language, HypothesisSuggestion, StudyDesignSuggestion, GroundingChunk, LiteratureSearchResult, TimelineTask, DataManagementData } from '../types';
+import { AIPersona, Language, HypothesisSuggestion, StudyDesignSuggestion, GroundingChunk, LiteratureSearchResult, TimelineTask, DataManagementData, JournalSuggestion } from '../types';
 import { AI_PERSONA_PROMPTS } from '../constants';
 
 // The API key is now provided by `config.js`, which is generated during the Vercel build process.
@@ -15,7 +15,7 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 /**
  * A robust function to find and parse a JSON object from a string.
- * It looks for the first '{' and the last '}' to extract the content.
+ * It looks for the first '{' or '[' and the last '}' or ']' to extract the content.
  * @param text The string potentially containing a JSON object.
  * @returns The parsed object or null if parsing fails.
  */
@@ -42,7 +42,7 @@ export const parseGeminiJson = <T,>(text: string): T | null => {
 
 
 export const getProjectDetailsFromTitle = async (title: string) => {
-    const prompt = `Based on the research project title "${title}", generate a concise set of primary and secondary research questions, and a primary and secondary hypothesis. Respond with ONLY a JSON object in the following format: { "primaryQuestions": "...", "secondaryQuestions": "...", "primaryHypothesis": "...", "secondaryHypothesis": "..." }`;
+    const prompt = `Based on the research project title "${title}", generate a concise set of primary and secondary research questions, a primary and secondary hypothesis, a list of 5-7 relevant keywords as a comma-separated string, and a brief paragraph on potential ethical considerations. Respond with ONLY a JSON object in the following format: { "primaryQuestions": "...", "secondaryQuestions": "...", "primaryHypothesis": "...", "secondaryHypothesis": "...", "keywords": "...", "ethicalConsiderations": "..." }`;
 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -56,6 +56,8 @@ export const getProjectDetailsFromTitle = async (title: string) => {
                     secondaryQuestions: { type: Type.STRING },
                     primaryHypothesis: { type: Type.STRING },
                     secondaryHypothesis: { type: Type.STRING },
+                    keywords: { type: Type.STRING },
+                    ethicalConsiderations: { type: Type.STRING },
                 }
             }
         }
@@ -181,7 +183,15 @@ export const suggestMethodologyField = async (projectContext: string, field: 'In
     return response.text;
 }
 
-// FIX: Add missing getTipsForStep function.
+export const suggestSamplingMethod = async (projectContext: string): Promise<string> => {
+    const prompt = `Based on the research context: "${projectContext}", suggest a suitable sampling method and provide a brief justification for it. Respond with only the text.`;
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    });
+    return response.text;
+}
+
 export const getTipsForStep = async (stepTitle: string, projectContext: string): Promise<string> => {
     const prompt = `For a research project with the context: "${projectContext}", provide tailored, practical tips for the following step: "${stepTitle}". The tips should be concise and actionable.`;
     const response = await ai.models.generateContent({
@@ -212,6 +222,40 @@ export const suggestTitleAndAbstract = async (draft: string): Promise<string> =>
     return response.text;
 }
 
+export const suggestJournals = async (draft: string): Promise<JournalSuggestion[]> => {
+    const prompt = `Based on the following research draft, suggest 3 suitable academic journals for publication. For each journal, provide its name, a brief description of its scope, and why it's a good fit for this paper. Respond with ONLY a JSON array in the format: [{ "name": "...", "scope": "...", "reason": "..." }]`;
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: { type: Type.STRING },
+                        scope: { type: Type.STRING },
+                        reason: { type: Type.STRING },
+                    }
+                }
+            }
+        }
+    });
+
+    return parseGeminiJson<JournalSuggestion[]>(response.text) || [];
+}
+
+export const summarizeSourceByTitle = async (title: string): Promise<string> => {
+    const prompt = `Provide a concise, 2-3 sentence academic summary of a potential research paper with the title: "${title}".`;
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    });
+    return response.text;
+};
+
 export const generateSampleData = async (columns: {id: number, name: string}[], rowCount: number): Promise<Record<string, string>[]> => {
     const columnNames = columns.map(c => c.name);
     const prompt = `Generate ${rowCount} rows of realistic sample data for a table with the following columns: ${columnNames.join(', ')}. Respond with ONLY a JSON array of objects.`;
@@ -225,6 +269,17 @@ export const generateSampleData = async (columns: {id: number, name: string}[], 
     });
 
     return parseGeminiJson<Record<string, string>[]>(response.text) || [];
+}
+
+export const suggestAnalysisPlan = async (columns: {id: number, name: string}[]): Promise<string> => {
+    const columnNames = columns.map(c => c.name);
+    const prompt = `For a study with the following variables: ${columnNames.join(', ')}, suggest a basic data analysis plan. For each potential analysis, state which variables it applies to and what statistical test would be appropriate. Format as a bulleted list.`;
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt
+    });
+    return response.text;
 }
 
 export const suggestTimelineTasks = async (projectContext: string): Promise<Partial<TimelineTask>[]> => {

@@ -10,6 +10,7 @@ export enum Tab {
   FormGenerator = "Form Generator",
   ProjectTimeline = "Project Timeline",
   UserManual = "User Manual",
+  Feedback = "Feedback & Support",
 }
 
 export interface ProjectOverviewData {
@@ -18,9 +19,17 @@ export interface ProjectOverviewData {
   secondaryQuestions: string;
   primaryHypothesis: string;
   secondaryHypothesis: string;
-  studyDesign: string;
-  sampleSize: string;
-  studyDuration: string;
+  keywords: string;
+  ethicalConsiderations: string;
+}
+
+export interface StudyMethodologyData {
+  studyType: string;
+  inclusionCriteria: string;
+  exclusionCriteria: string;
+  primaryVariables: string;
+  secondaryVariables: string;
+  samplingMethod: string;
 }
 
 export interface TimelineTask {
@@ -38,12 +47,15 @@ export interface DataManagementData {
 
 export interface AppState {
   projectOverview: ProjectOverviewData;
+  studyMethodology: StudyMethodologyData;
   projectTimeline: {
     tasks: TimelineTask[];
   };
   dataManagement: DataManagementData;
   citations: GroundingChunk[];
 }
+
+export type ProjectsState = Record<string, AppState>;
 
 export enum AIPersona {
   SubjectGuide = 'Subject Guide',
@@ -86,4 +98,10 @@ export interface LiteratureSearchResult {
     sources: GroundingChunk[];
     keyThemes: string[];
     relatedQueries: string[];
+}
+
+export interface JournalSuggestion {
+    name: string;
+    scope: string;
+    reason: string;
 }
